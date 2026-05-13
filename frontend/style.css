@@ -1,0 +1,55 @@
+﻿:root {
+  --bg: #f4f0e7;
+  --ink: #1f2430;
+  --muted: #5b6370;
+  --surface: #fffdf8;
+  --line: #d8cfbf;
+  --accent: #007d7f;
+  --accent-2: #ff7a59;
+  --shadow: 0 18px 40px rgba(0, 0, 0, 0.08);
+  --radius: 18px;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  color: var(--ink);
+  background: radial-gradient(circle at 15% 12%, #fff5df 0, transparent 40%), radial-gradient(circle at 88% 82%, #d8f4ea 0, transparent 35%), var(--bg);
+  font-family: "Noto Sans SC", sans-serif;
+  min-height: 100vh;
+}
+h1, h2, h3, .eyebrow { font-family: "Space Grotesk", "Noto Sans SC", sans-serif; }
+.bg-shape { position: fixed; border-radius: 999px; pointer-events: none; filter: blur(40px); opacity: .25; }
+.bg-shape-1 { width: 320px; height: 320px; background: #ffb870; left: -80px; top: -90px; }
+.bg-shape-2 { width: 280px; height: 280px; background: #66d9cb; right: -70px; bottom: -70px; }
+.topbar { max-width: 1240px; margin: 0 auto; padding: 28px 20px 18px; display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
+.topbar h1 { margin: 4px 0 0; font-size: 2rem; }
+.eyebrow { margin: 0; color: var(--muted); letter-spacing: .06em; font-size: .78rem; text-transform: uppercase; }
+.topbar-actions { display: flex; align-items: center; gap: 12px; }
+.switch { display: inline-flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 8px 12px; }
+.layout { max-width: 1240px; margin: 0 auto; padding: 10px 20px 28px; display: grid; grid-template-columns: 1.2fr .8fr; gap: 16px; }
+.panel { background: color-mix(in srgb, var(--surface) 87%, #fff 13%); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+.panel-head { padding: 16px 18px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; }
+.panel-head h2 { margin: 0; font-size: 1rem; }
+.pill { border-radius: 999px; padding: 4px 10px; border: 1px solid var(--line); color: var(--muted); font-size: .82rem; }
+.chat-panel { display: flex; flex-direction: column; min-height: 72vh; }
+.chat-list { flex: 1; overflow: auto; padding: 16px; display: grid; gap: 12px; }
+.chat-item { opacity: 0; transform: translateY(10px); animation: rise .35s ease forwards; }
+.role { margin: 0 0 5px; font-size: .77rem; color: var(--muted); }
+.bubble { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; line-height: 1.55; white-space: pre-wrap; }
+.chat-item.assistant .bubble { background: #edf9f6; border-color: #b8e6dc; }
+.time { margin-top: 4px; display: block; font-size: .72rem; color: #7c8697; }
+.chat-form { border-top: 1px solid var(--line); padding: 12px; display: grid; gap: 8px; }
+textarea, input { width: 100%; border: 1px solid var(--line); background: #fff; border-radius: 12px; padding: 10px 11px; font: inherit; color: inherit; }
+textarea:focus, input:focus { outline: 2px solid #9ce2d7; border-color: #7cc7ba; }
+.form-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.primary-btn, .ghost-btn { border: 1px solid transparent; border-radius: 12px; font-weight: 600; padding: 10px 14px; cursor: pointer; }
+.primary-btn { background: linear-gradient(135deg, var(--accent), #12a4a6); color: #fff; }
+.ghost-btn { background: #fff; border-color: var(--line); color: var(--ink); }
+.side-panel { max-height: 72vh; overflow: auto; }
+.card { padding: 14px 16px; border-bottom: 1px dashed var(--line); }
+.card:last-child { border-bottom: none; }
+.card h3 { margin: 0 0 8px; font-size: .95rem; }
+.result-body { white-space: pre-wrap; line-height: 1.6; font-size: .95rem; }
+.mono { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .8rem; background: #121820; color: #d6efff; padding: 10px; border-radius: 10px; }
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 960px) { .layout { grid-template-columns: 1fr; } .chat-panel, .side-panel { min-height: 40vh; max-height: none; } }

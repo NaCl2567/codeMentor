@@ -1,0 +1,83 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Code Tutor Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div class="bg-shape bg-shape-1"></div>
+  <div class="bg-shape bg-shape-2"></div>
+
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">Agent Workflow Frontend</p>
+      <h1>Code Tutor Studio</h1>
+    </div>
+    <div class="topbar-actions">
+      <label class="switch">
+        <input type="checkbox" id="mockToggle" checked />
+        <span>Mock Mode</span>
+      </label>
+      <button id="clearBtn" class="ghost-btn">清空会话</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="panel chat-panel">
+      <div class="panel-head">
+        <h2>导师主控对话</h2>
+        <span id="statusPill" class="pill">Ready</span>
+      </div>
+      <div id="chatList" class="chat-list"></div>
+      <form id="chatForm" class="chat-form">
+        <textarea id="messageInput" rows="3" placeholder="例如：给我一题 Python 基础练习；或提交代码让我 review；或给我学习路径"></textarea>
+        <div class="form-row">
+          <input id="userIdInput" type="text" placeholder="user_id (默认 demo_user)" />
+          <button type="submit" class="primary-btn">发送</button>
+        </div>
+      </form>
+    </section>
+
+    <aside class="panel side-panel">
+      <div class="panel-head">
+        <h2>结果看板</h2>
+      </div>
+
+      <div class="card">
+        <h3>Intent 分类</h3>
+        <pre id="intentView" class="mono"></pre>
+      </div>
+
+      <div class="card">
+        <h3>练习题输出</h3>
+        <div id="exerciseView" class="result-body"></div>
+      </div>
+
+      <div class="card">
+        <h3>代码审查报告</h3>
+        <div id="reviewView" class="result-body"></div>
+      </div>
+
+      <div class="card">
+        <h3>学习路径</h3>
+        <div id="pathView" class="result-body"></div>
+      </div>
+    </aside>
+  </main>
+
+  <template id="chatItemTpl">
+    <article class="chat-item">
+      <p class="role"></p>
+      <div class="bubble"></div>
+      <time class="time"></time>
+    </article>
+  </template>
+
+  <script src="./app.js" type="module"></script>
+</body>
+</html>
