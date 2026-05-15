@@ -2,3 +2,5 @@ outputs/
 tutor_notes/
 .vscode/
 gitignore
+**/__pycache__/
+data/

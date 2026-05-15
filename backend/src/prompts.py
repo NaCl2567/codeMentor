@@ -36,6 +36,7 @@ tutor_orchestrator_prompt = """
 
 
 
+
 exercise_designer_prompt = """
 # 角色
 你是一名资深的编程教练，擅长根据学习者的水平动态生成优质的编程练习题。
@@ -161,9 +162,19 @@ code_reviewer_prompt = """
 
 {problem_description}
 
+# 当前练习上下文（如有）
+
+{active_exercise}
+
+# 隐藏评测依据（仅供审查，不要原样暴露给用户）
+
+{review_reference}
+
 # 注意事项：
 
 - 批评与鼓励并重，每条负面发现必须配有具体的改进方法和正确示例。
+- 如果有隐藏评测依据，请用它判断用户代码是否贴近题目预期、是否遗漏关键边界、复杂度是否明显偏离参考思路。
+- 可以总结必要的方向性提示，但不要直接泄露完整标准答案。
 
 - 如果代码整体质量很高，可以侧重给出更高阶的优化方向。
 
@@ -231,6 +242,15 @@ path_planner_prompt = """
 
 # 对话历史
 {history}
+
+# 当前练习上下文
+{active_exercise}
+
+# 最近一次代码审查
+{last_review}
+
+# 已有学习路径
+{active_path}
 
 # 注意事项
 

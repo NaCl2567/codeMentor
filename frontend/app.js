@@ -23,6 +23,44 @@ function nowTime() {
   return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
+function escapeHtml(str) {
+  return str
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function renderMarkdown(md) {
+  if (!md) return "";
+
+  const codeBlocks = [];
+  let text = md.replace(/```(\w+)?\n([\s\S]*?)```/g, (_, lang = "", code = "") => {
+    const idx = codeBlocks.length;
+    codeBlocks.push(
+      `<pre class="md-pre"><code class="md-code ${escapeHtml(lang)}">${escapeHtml(code.trimEnd())}</code></pre>`,
+    );
+    return `@@CODEBLOCK_${idx}@@`;
+  });
+
+  text = escapeHtml(text);
+
+  text = text
+    .replace(/^###\s+(.+)$/gm, "<h4>$1</h4>")
+    .replace(/^##\s+(.+)$/gm, "<h3>$1</h3>")
+    .replace(/^#\s+(.+)$/gm, "<h2>$1</h2>")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/^\-\s+(.+)$/gm, "<li>$1</li>");
+
+  text = text.replace(/(?:<li>[\s\S]*?<\/li>\n?)+/g, (block) => `<ul>${block}</ul>`);
+  text = text.replace(/\n{2,}/g, "</p><p>");
+  text = `<p>${text.replace(/\n/g, "<br/>")}</p>`;
+
+  text = text.replace(/@@CODEBLOCK_(\d+)@@/g, (_, i) => codeBlocks[Number(i)] || "");
+  return text;
+}
+
 function setStatus(text) {
   els.statusPill.textContent = text;
 }
@@ -135,34 +173,34 @@ function renderPanels(result) {
   // Same intent should always overwrite its own panel;
   // fallback text avoids stale content when backend omits detail fields.
   if (result.intent === "request_exercise") {
-    els.exerciseView.textContent = result.exercise || "本次未返回练习详情。";
+    els.exerciseView.innerHTML = renderMarkdown(result.exercise || "本次未返回练习详情。");
     return;
   }
   if (result.intent === "submit_code") {
-    els.reviewView.textContent = result.review || "本次未返回审查详情。";
+    els.reviewView.innerHTML = renderMarkdown(result.review || "本次未返回审查详情。");
     return;
   }
   if (result.intent === "learning_path") {
-    els.pathView.textContent = result.path || "本次未返回路径详情。";
+    els.pathView.innerHTML = renderMarkdown(result.path || "本次未返回路径详情。");
     return;
   }
 
   // chat/unknown: only update panels when payload includes explicit content
-  if (result.exercise) els.exerciseView.textContent = result.exercise;
-  if (result.review) els.reviewView.textContent = result.review;
-  if (result.path) els.pathView.textContent = result.path;
+  if (result.exercise) els.exerciseView.innerHTML = renderMarkdown(result.exercise);
+  if (result.review) els.reviewView.innerHTML = renderMarkdown(result.review);
+  if (result.path) els.pathView.innerHTML = renderMarkdown(result.path);
 }
 
 function clearDownstreamByIntent(intent) {
   // Workflow: request_exercise -> submit_code -> learning_path
   // Changing an earlier stage invalidates downstream results.
   if (intent === "request_exercise") {
-    els.reviewView.textContent = "";
-    els.pathView.textContent = "";
+    els.reviewView.innerHTML = "";
+    els.pathView.innerHTML = "";
     return;
   }
   if (intent === "submit_code") {
-    els.pathView.textContent = "";
+    els.pathView.innerHTML = "";
   }
 }
 
@@ -195,9 +233,9 @@ els.mockToggle.addEventListener("change", (e) => {
 els.clearBtn.addEventListener("click", () => {
   els.chatList.innerHTML = "";
   els.intentView.textContent = "";
-  els.exerciseView.textContent = "";
-  els.reviewView.textContent = "";
-  els.pathView.textContent = "";
+  els.exerciseView.innerHTML = "";
+  els.reviewView.innerHTML = "";
+  els.pathView.innerHTML = "";
   setStatus(state.mock ? "Mock Ready" : "API Ready");
 });
 

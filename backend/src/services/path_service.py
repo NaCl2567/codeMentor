@@ -6,6 +6,7 @@ from typing import Any, Iterator
 from hello_agents import ToolAwareSimpleAgent
 from ..config import TutorConfig
 from ..models import TutorState, LearningPath, LearningStage
+from ..prompt_utils import safe_format_prompt
 from ..prompts import path_planner_prompt
 logger = logging.getLogger(__name__)
 
@@ -22,15 +23,19 @@ class PathService:
         params 可选 "goal"（目标岗位）等，缺失时使用用户画像中的值。
         """
         goal = params.get("goal") or state.user_profile.goal or "通用编程提升"
+        state.user_profile.goal = goal
         prompt = self._build_prompt(state, goal)
         raw_response = self.agent.run(prompt)
-        return self._parse_plan(raw_response, state.user_id, goal)
+        path = self._parse_plan(raw_response, state.user_id, goal)
+        state.active_learning_path = path
+        return path
 
     def plan_path_stream(self, state: TutorState, params: dict) -> Iterator[dict[str, Any]]:
         """
         流式生成学习路径，实时输出 chunk，最后产出完整的 LearningPath。
         """
         goal = params.get("goal") or state.user_profile.goal or "通用编程提升"
+        state.user_profile.goal = goal
         prompt = self._build_prompt(state, goal)
 
         collected_chunks: list[str] = []
@@ -41,17 +46,26 @@ class PathService:
 
         full_response = "".join(collected_chunks)
         path = self._parse_plan(full_response, state.user_id, goal)
+        state.active_learning_path = path
         yield {"type": "learning_path", "path": path}
 
     def _build_prompt(self, state: TutorState, goal: str) -> str:
         """构建填充用户画像与对话历史的完整提示词。"""
         user_profile_text = state.user_profile.summary()
         history_text = state.recent_history(limit=5)
-        # 注意：prompt 中占位符 {goal}, {current_level}, {total_weeks} 等无需填充，
-        # 因为它们是 Agent 输出时自行填写的模板，我们只需提供画像和历史。
-        prompt = path_planner_prompt.format(
+        active_exercise = state.active_exercise.to_markdown() if state.active_exercise else "无"
+        last_review = state.last_review_report.markdown if state.last_review_report else "无"
+        active_path = state.active_learning_path.render() if state.active_learning_path else "无"
+
+        prompt = safe_format_prompt(
+            path_planner_prompt,
+            goal=goal,
+            current_level=state.user_profile.current_level,
             user_profile=user_profile_text,
             history=history_text,
+            active_exercise=active_exercise,
+            last_review=last_review,
+            active_path=active_path,
         )
         return prompt
 

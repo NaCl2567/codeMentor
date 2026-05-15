@@ -1,14 +1,15 @@
 
 from __future__ import annotations
 import logging
-import json
 import re
-from typing import Any, Iterator, Optional
+from typing import Any, Iterator
 
 from hello_agents import ToolAwareSimpleAgent
 from ..config import TutorConfig
 from ..models import TutorState, ReviewReport
+from ..prompt_utils import safe_format_prompt
 from ..prompts import code_reviewer_prompt
+from .leetcode_mcp_client import LeetCodeMCPClient
 logger = logging.getLogger(__name__)
 
 class ReviewService:
@@ -17,6 +18,7 @@ class ReviewService:
     def __init__(self, reviewer_agent: ToolAwareSimpleAgent, config: TutorConfig) -> None:
         self.agent = reviewer_agent
         self.config = config
+        self.leetcode_mcp_client = LeetCodeMCPClient(config)
 
     def review_code(self, state: TutorState, params: dict) -> ReviewReport:
         """
@@ -30,7 +32,9 @@ class ReviewService:
         prompt = self._build_prompt(state, code, language, problem)
         raw_response = self.agent.run(prompt)
 
-        return self._parse_response(raw_response, code, language)
+        report = self._parse_response(raw_response, code, language)
+        state.last_review_report = report
+        return report
 
     def review_code_stream(self, state: TutorState, params: dict) -> Iterator[dict[str, Any]]:
         """
@@ -51,6 +55,7 @@ class ReviewService:
 
         full_response = "".join(collected_chunks)
         report = self._parse_response(full_response, code, language)
+        state.last_review_report = report
         yield {"type": "review_report", "report": report}
 
     def _build_prompt(self, state: TutorState, code: str, language: str, problem: str) -> str:
@@ -58,11 +63,21 @@ class ReviewService:
         user_profile_text = state.user_profile.summary()
         history_text = state.recent_history(limit=3)
 
-        prompt = code_reviewer_prompt.format(
+        active_exercise = state.active_exercise.to_markdown() if state.active_exercise else "无"
+        review_reference = state.active_exercise.review_context() if state.active_exercise else "无"
+        if state.active_exercise:
+            mcp_reference = self._build_mcp_review_reference(state.active_exercise)
+            if mcp_reference:
+                review_reference = f"{review_reference}\n\n{mcp_reference}"
+
+        prompt = safe_format_prompt(
+            code_reviewer_prompt,
             user_profile=user_profile_text,
             language=language,
             code=code,
             problem_description=problem or "无",
+            active_exercise=active_exercise,
+            review_reference=review_reference,
             history=history_text,
             timestamp="{timestamp}",   # 保留占位，让 agent 填充
             score="{score}",
@@ -71,6 +86,23 @@ class ReviewService:
         # 替换残留的格式占位为合理默认值，避免 agent 混淆
         prompt = prompt.replace("{timestamp}", "将由 agent 生成")
         return prompt
+
+    def _build_mcp_review_reference(self, exercise) -> str:
+        if not self.config.enable_leetcode_mcp:
+            return ""
+        title_slug = getattr(exercise, "title_slug", "") or self._extract_title_slug(getattr(exercise, "source_url", ""))
+        if not title_slug:
+            return ""
+        try:
+            return self.leetcode_mcp_client.build_review_reference(title_slug)
+        except Exception as exc:
+            logger.warning("LeetCode MCP review reference failed: %s", exc)
+            return ""
+
+    @staticmethod
+    def _extract_title_slug(url: str) -> str:
+        match = re.search(r"leetcode\.com/problems/([^/]+)/?", url or "")
+        return match.group(1) if match else ""
 
     def _parse_response(self, raw_response: str, original_code: str, language: str) -> ReviewReport:
         """从 Agent 的 Markdown 输出中提取结构化字段。"""

@@ -1,13 +1,15 @@
 from __future__ import annotations
 import logging
 import re
-from typing import Any, Dict, Iterator
+from typing import Any, Iterator
 
 from hello_agents import ToolAwareSimpleAgent
 
 from ..config import TutorConfig
 from ..models import Exercise, TutorState
+from ..prompt_utils import safe_format_prompt
 from ..prompts import exercise_designer_prompt
+from .leetcode_service import LeetCodeService
 
 logger = logging.getLogger(__name__)
 
@@ -18,17 +20,32 @@ class ExerciseService:
     def __init__(self, agent: ToolAwareSimpleAgent, config: TutorConfig) -> None:
         self.agent = agent
         self.config = config
+        self.leetcode_service = LeetCodeService(config)
 
     def generate_exercise(self, state: TutorState, params: dict[str, Any]) -> Exercise:
         """同步生成一道练习题。"""
+        leetcode_exercise = self.leetcode_service.select_exercise(state, params)
+        if leetcode_exercise:
+            state.active_exercise = leetcode_exercise
+            return leetcode_exercise
+
         full_prompt = self._build_full_prompt(state, params)
         raw_output = self.agent.run(full_prompt)
-        return self._parse_exercise(raw_output)
+        exercise = self._parse_exercise(raw_output)
+        state.active_exercise = exercise
+        return exercise
 
     def generate_exercise_stream(
         self, state: TutorState, params: dict[str, Any]
     ) -> Iterator[dict[str, Any]]:
         """流式生成练习题，逐步产出 Markdown 块。"""
+        leetcode_exercise = self.leetcode_service.select_exercise(state, params)
+        if leetcode_exercise:
+            state.active_exercise = leetcode_exercise
+            yield {"type": "exercise_stream_start", "params": params}
+            yield {"type": "exercise_complete", "exercise": leetcode_exercise.to_dict()}
+            return
+
         full_prompt = self._build_full_prompt(state, params)
         full_text = []
         yield {"type": "exercise_stream_start", "params": params}
@@ -42,6 +59,7 @@ class ExerciseService:
             full_output = "".join(full_text)
             try:
                 exercise = self._parse_exercise(full_output)
+                state.active_exercise = exercise
                 yield {"type": "exercise_complete", "exercise": exercise.to_dict()}
             except Exception as e:
                 logger.error("Failed to parse exercise output: %s", e)
@@ -54,7 +72,8 @@ class ExerciseService:
         topic = params.get("topic", "根据用户薄弱点自动选择")
         user_skill_profile = state.user_profile.summary()
 
-        return exercise_designer_prompt.format(
+        return safe_format_prompt(
+            exercise_designer_prompt,
             title="{title}",               # 由 Agent 生成时自行填写
             language=language,
             difficulty=difficulty,
