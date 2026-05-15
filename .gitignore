@@ -4,3 +4,5 @@ tutor_notes/
 gitignore
 **/__pycache__/
 data/
+TODO
+backend/.env
