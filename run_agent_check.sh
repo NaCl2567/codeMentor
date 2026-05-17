@@ -2,7 +2,7 @@
 set -eu
 
 # Default Python path for the specified environment.
-PYTHON_DEFAULT="/c/Users/NaCl/Desktop/codes/helloAgents/agent_py313/python.exe"
+PYTHON_DEFAULT="./venv/Scripts/python.exe"
 
 # Fallback for environments where /c/... is not mounted (e.g. WSL path mapping not present).
 PYTHON_FALLBACK="C:/Users/NaCl/Desktop/codes/helloAgents/agent_py313/python.exe"

@@ -1,3 +1,5 @@
 前端的markdown显示没有渲染
 
-将exercise agent的选题变成llm驱动而非仅依赖MCP的搜索
+实现记忆的通过review结果整合以及自动整理？？？
+
+限制agent能接触到的MCP工具类型

@@ -6,3 +6,5 @@ gitignore
 data/
 TODO
 .env
+venv/
+.claude/

@@ -80,7 +80,7 @@ source venv/Scripts/activate
 source venv/bin/activate
 
 # 安装依赖
-pip install hello-agents fastapi uvicorn pydantic
+pip install hello-agents==0.2.8 fastapi uvicorn pydantic
 ```
 
 **注意**：项目启动脚本（`run_*.sh`）默认使用硬编码路径 `helloAgents/agent_py313/python.exe`，如果使用自己的虚拟环境，可修改脚本或直接用 `python` 命令运行。
@@ -172,7 +172,7 @@ CLI 中可用命令：
 - `/history` - 查看最近对话历史
 - `/exit` - 退出
 
-### 3. FastAPI 后端
+### 2. FastAPI 后端 + 静态前端
 
 启动 API 服务器供前端调用：
 
@@ -184,36 +184,9 @@ bash run_backend_api.sh
 python -m uvicorn backend.api_server:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-API 端点：
+如果调用失败，可以尝试取消HTTP_PROXY和HTTPS_PROXY环境变量。
 
-- `GET /health` - 健康检查
-- `POST /api/chat` - 对话接口
-
-请求示例：
-
-```json
-{
-  "user_id": "demo_user",
-  "message": "给我一题 Python 列表基础练习"
-}
-```
-
-响应示例：
-
-```json
-{
-  "response": "## 练习题目：...",
-  "intent": "request_exercise",
-  "params": {"language": "Python", "difficulty": "基础"},
-  "exercise_markdown": "...",
-  "review_markdown": "",
-  "path_markdown": ""
-}
-```
-
-### 4. 前端界面
-
-前端为纯静态页面，有两种模式：
+接下来可以启动前端页面。前端为纯静态页面，有两种模式：
 
 **Mock 模式（默认）**：开关开启时，前端不依赖后端，用内置逻辑模拟完整工作流，适合体验界面交互。
 
