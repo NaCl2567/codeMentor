@@ -32,33 +32,23 @@ function escapeHtml(str) {
     .replaceAll("'", "&#39;");
 }
 
+// Configure marked once at load time
+marked.use({
+  breaks: true,
+  gfm: true,
+});
+
 function renderMarkdown(md) {
   if (!md) return "";
-
-  const codeBlocks = [];
-  let text = md.replace(/```(\w+)?\n([\s\S]*?)```/g, (_, lang = "", code = "") => {
-    const idx = codeBlocks.length;
-    codeBlocks.push(
-      `<pre class="md-pre"><code class="md-code ${escapeHtml(lang)}">${escapeHtml(code.trimEnd())}</code></pre>`,
-    );
-    return `@@CODEBLOCK_${idx}@@`;
-  });
-
-  text = escapeHtml(text);
-
-  text = text
-    .replace(/^###\s+(.+)$/gm, "<h4>$1</h4>")
-    .replace(/^##\s+(.+)$/gm, "<h3>$1</h3>")
-    .replace(/^#\s+(.+)$/gm, "<h2>$1</h2>")
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/^\-\s+(.+)$/gm, "<li>$1</li>");
-
-  text = text.replace(/(?:<li>[\s\S]*?<\/li>\n?)+/g, (block) => `<ul>${block}</ul>`);
-  text = text.replace(/\n{2,}/g, "</p><p>");
-  text = `<p>${text.replace(/\n/g, "<br/>")}</p>`;
-
-  text = text.replace(/@@CODEBLOCK_(\d+)@@/g, (_, i) => codeBlocks[Number(i)] || "");
-  return text;
+  if (typeof marked === "undefined") {
+    return escapeHtml(md).replace(/\n/g, "<br/>");
+  }
+  try {
+    return marked.parse(md);
+  } catch (e) {
+    console.error("Markdown render failed:", e);
+    return escapeHtml(md).replace(/\n/g, "<br/>");
+  }
 }
 
 function setStatus(text) {
@@ -69,7 +59,11 @@ function addChat(role, text) {
   const node = els.chatItemTpl.content.firstElementChild.cloneNode(true);
   node.classList.add(role);
   node.querySelector(".role").textContent = role === "user" ? "你" : "导师主控";
-  node.querySelector(".bubble").textContent = text;
+  if (role === "assistant") {
+    node.querySelector(".bubble").innerHTML = renderMarkdown(text);
+  } else {
+    node.querySelector(".bubble").textContent = text;
+  }
   node.querySelector(".time").textContent = nowTime();
   els.chatList.appendChild(node);
   els.chatList.scrollTop = els.chatList.scrollHeight;

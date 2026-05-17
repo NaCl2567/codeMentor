@@ -76,10 +76,10 @@ def chat(req: ChatRequest) -> dict[str, Any]:
     try:
         state = tutor._get_or_create_state(req.user_id)
         intent, params = tutor._classify_intent(state, req.message)
-        response = tutor.chat_with_intent(req.user_id, req.message, intent, params)
+        full_response = tutor.chat_with_intent(req.user_id, req.message, intent, params)
 
         payload: dict[str, Any] = {
-            "response": response,
+            "response": full_response,
             "intent": intent,
             "params": params,
             "exercise_markdown": "",
@@ -88,11 +88,14 @@ def chat(req: ChatRequest) -> dict[str, Any]:
         }
 
         if intent == "request_exercise":
-            payload["exercise_markdown"] = response
+            payload["exercise_markdown"] = full_response
+            payload["response"] = "已为你生成一道练习题，请查看右侧看板。"
         elif intent == "submit_code":
-            payload["review_markdown"] = response
+            payload["review_markdown"] = full_response
+            payload["response"] = "代码审查完成，请查看右侧看板。"
         elif intent == "learning_path":
-            payload["path_markdown"] = response
+            payload["path_markdown"] = full_response
+            payload["response"] = "学习路径已规划完成，请查看右侧看板。"
 
         return payload
     except Exception as exc:
