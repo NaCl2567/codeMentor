@@ -97,7 +97,14 @@ class ExerciseService:
         return "\n".join(parts)
 
     def _parse_exercise(self, raw: str) -> Exercise:
-        """从 Agent 返回的 Markdown 文本中提取 Exercise 字段（逻辑不变）。"""
+        """从 Agent 返回的 Markdown 文本中提取 Exercise 字段。
+        先丢弃 ### 思考过程 块，再解析题目正文。
+        """
+        # 丢弃思考过程：截取 ## 练习题目：之前的所有内容
+        marker = raw.find("## 练习题目：")
+        if marker != -1:
+            raw = raw[marker:]
+
         title_match = re.search(r"##\s*练习题目：(.+)", raw)
         title = title_match.group(1).strip() if title_match else "未命名练习"
 

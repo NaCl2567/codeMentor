@@ -1,10 +1,10 @@
 outputs/
 tutor_notes/
 .vscode/
-gitignore
+.gitignore
 **/__pycache__/
 data/
-TODO
 .env
 venv/
 .claude/
+TODO
