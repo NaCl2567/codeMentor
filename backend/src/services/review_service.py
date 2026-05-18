@@ -117,7 +117,7 @@ class ReviewService:
             lines=len(original_code.splitlines()) if original_code else 0,
         )
 
-        score_match = re.search(r"整体评分[：:]\s*([\d.]+)", raw_response)
+        score_match = re.search(r"整体评分\*{0,2}[：:]\s*([\d.]+)", raw_response)
         if score_match:
             try:
                 report.overall_score = float(score_match.group(1))
