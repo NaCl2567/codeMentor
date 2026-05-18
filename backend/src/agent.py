@@ -56,10 +56,10 @@ class CodeTutorAgent:
             tool_registry=self.base_tools_registry,
         )
 
-        self.exercise_service = ExerciseService(self.exercise_agent, self.config)
-        self.review_service = ReviewService(self.reviewer_agent, self.config)
-        self.path_service = PathService(self.planner_agent, self.config)
         self.memory_service = MemoryService(self.config, note_tool=self.note_tool)
+        self.exercise_service = ExerciseService(self.exercise_agent, self.config, self.memory_service)
+        self.review_service = ReviewService(self.reviewer_agent, self.config, self.memory_service)
+        self.path_service = PathService(self.planner_agent, self.config, self.memory_service)
 
         self.active_sessions: Dict[str, TutorState] = {}
 

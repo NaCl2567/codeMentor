@@ -9,6 +9,7 @@ from ..config import TutorConfig
 from ..models import TutorState, ReviewReport
 from ..prompt_utils import safe_format_prompt
 from ..prompts import code_reviewer_prompt
+from .memory_service import MemoryService
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +21,10 @@ class ReviewService:
     service 层只负责组装 prompt、调用 agent、解析输出。
     """
 
-    def __init__(self, reviewer_agent: ToolAwareSimpleAgent, config: TutorConfig) -> None:
+    def __init__(self, reviewer_agent: ToolAwareSimpleAgent, config: TutorConfig, memory_service: MemoryService | None = None) -> None:
         self.agent = reviewer_agent
         self.config = config
+        self.memory_service = memory_service
 
     def review_code(self, state: TutorState, params: dict) -> ReviewReport:
         """同步审查代码，返回结构化的 ReviewReport。
@@ -70,6 +72,17 @@ class ReviewService:
         # 提供 titleSlug / source_url 线索，让 agent 自行决定是否调用 MCP 工具
         review_reference = self._build_review_hint(state)
 
+        # 从长期记忆中提取历史审查摘要
+        user_review_history = ""
+        if self.memory_service:
+            ctx = self.memory_service.build_learning_context_block(state.user_id)
+            parts: list[str] = []
+            if ctx.get("review_trend"):
+                parts.append(ctx["review_trend"])
+            if ctx.get("recurring_errors"):
+                parts.append(f"反复出现的错误模式：{ctx['recurring_errors']}")
+            user_review_history = "\n".join(parts)
+
         prompt = safe_format_prompt(
             code_reviewer_prompt,
             user_profile=user_profile_text,
@@ -79,6 +92,7 @@ class ReviewService:
             active_exercise=active_exercise,
             review_reference=review_reference,
             history=history_text,
+            user_review_history=user_review_history or "无历史审查记录",
         )
         return prompt
 

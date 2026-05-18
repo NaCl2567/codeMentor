@@ -170,6 +170,76 @@ class MemoryService:
         self.save_user_memory(memory)
         return memory
 
+    def build_learning_context_block(self, user_id: str) -> dict[str, str]:
+        """从长期记忆中提取可直接注入 prompt 的摘要字符串，供三个 service 调用。
+
+        返回的 dict keys：
+          recent_exercises   — 最近练习题目及标签（防重复出题）
+          recurring_errors   — 反复出现的错误模式（针对性出题/审查）
+          review_trend       — 近期审查趋势（平均分 + 最高频错误）
+          weak_skills_detail — 薄弱知识点含 mastery_score（规划补强）
+        若无对应数据则对应 key 为空字符串。
+        """
+        if not self.config.enable_memory:
+            return {"recent_exercises": "", "recurring_errors": "", "review_trend": "", "weak_skills_detail": ""}
+
+        memory = self.load_user_memory(user_id)
+        result: dict[str, str] = {}
+
+        # --- recent_exercises：最近10条练习的标题 + 标签 ---
+        recent = memory.exercise_history[-10:]
+        if recent:
+            items = [f"{ex.title}（{', '.join(ex.tags)}）" for ex in recent]
+            result["recent_exercises"] = "；".join(items)
+        else:
+            result["recent_exercises"] = ""
+
+        # --- recurring_errors：review_history 中出现 ≥2 次的错误模式，按频率排序 ---
+        error_counter: dict[str, int] = {}
+        for rv in memory.review_history:
+            for pat in rv.error_patterns:
+                error_counter[pat] = error_counter.get(pat, 0) + 1
+        recurring = sorted(
+            [(pat, cnt) for pat, cnt in error_counter.items() if cnt >= 2],
+            key=lambda x: x[1], reverse=True
+        )
+        if recurring:
+            result["recurring_errors"] = "、".join(f"{pat}（{cnt}次）" for pat, cnt in recurring[:5])
+        else:
+            result["recurring_errors"] = ""
+
+        # --- review_trend：最近3次审查的平均分 + 最高频错误模式 ---
+        recent_reviews = memory.review_history[-3:]
+        if recent_reviews:
+            avg_score = sum(rv.score for rv in recent_reviews) / len(recent_reviews)
+            all_patterns: list[str] = []
+            for rv in recent_reviews:
+                all_patterns.extend(rv.error_patterns)
+            top_pattern = max(set(all_patterns), key=all_patterns.count) if all_patterns else ""
+            trend = f"近{len(recent_reviews)}次审查平均分：{avg_score:.1f}/10"
+            if top_pattern:
+                trend += f"；最常见问题：{top_pattern}"
+            result["review_trend"] = trend
+        else:
+            result["review_trend"] = ""
+
+        # --- weak_skills_detail：weak_count ≥ 2 的 top5 知识点，附 mastery_score ---
+        weak_skills = sorted(
+            [s for s in memory.skills.values() if s.weak_count >= 2],
+            key=lambda s: (s.weak_count, -s.mastery_score), reverse=True
+        )[:5]
+        if weak_skills:
+            parts = [f"{s.knowledge_id}（薄弱{s.weak_count}次，掌握度{s.mastery_score:.0%}）" for s in weak_skills]
+            result["weak_skills_detail"] = "、".join(parts)
+        else:
+            result["weak_skills_detail"] = ""
+
+        # --- prefers_leetcode / preferred_difficulty：偏好信号 ---
+        result["prefers_leetcode"] = "true" if memory.preferences.prefers_leetcode else ""
+        result["preferred_difficulty"] = self._top_key(memory.preferences.preferred_difficulties)
+
+        return result
+
     def get_runtime_context(self, user_id: str, query: str, *, limit: int = 5) -> str:
         """Retrieve compact session memory through hello_agents MemoryTool."""
         if not self.config.enable_memory:

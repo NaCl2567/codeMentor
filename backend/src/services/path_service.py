@@ -8,14 +8,16 @@ from ..config import TutorConfig
 from ..models import TutorState, LearningPath, LearningStage
 from ..prompt_utils import safe_format_prompt
 from ..prompts import path_planner_prompt
+from .memory_service import MemoryService
 logger = logging.getLogger(__name__)
 
 class PathService:
     """封装学习路径规划 Agent 的调用与结果解析。"""
 
-    def __init__(self, planner_agent: ToolAwareSimpleAgent, config: TutorConfig) -> None:
+    def __init__(self, planner_agent: ToolAwareSimpleAgent, config: TutorConfig, memory_service: MemoryService | None = None) -> None:
         self.agent = planner_agent
         self.config = config
+        self.memory_service = memory_service
 
     def plan_path(self, state: TutorState, params: dict) -> LearningPath:
         """
@@ -57,6 +59,19 @@ class PathService:
         last_review = state.last_review_report.markdown if state.last_review_report else "无"
         active_path = state.active_learning_path.render() if state.active_learning_path else "无"
 
+        # 从长期记忆提取练习历史与审查趋势，供规划 agent 跳过已掌握内容、优先补强薄弱点
+        practice_history_summary = ""
+        if self.memory_service:
+            ctx = self.memory_service.build_learning_context_block(state.user_id)
+            parts: list[str] = []
+            if ctx.get("recent_exercises"):
+                parts.append(f"最近练习题目：{ctx['recent_exercises']}")
+            if ctx.get("weak_skills_detail"):
+                parts.append(f"反复薄弱知识点：{ctx['weak_skills_detail']}")
+            if ctx.get("review_trend"):
+                parts.append(f"近期审查趋势：{ctx['review_trend']}")
+            practice_history_summary = "\n".join(parts)
+
         prompt = safe_format_prompt(
             path_planner_prompt,
             goal=goal,
@@ -66,6 +81,7 @@ class PathService:
             active_exercise=active_exercise,
             last_review=last_review,
             active_path=active_path,
+            practice_history_summary=practice_history_summary or "无练习历史记录",
         )
         return prompt
 

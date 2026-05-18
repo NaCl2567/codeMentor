@@ -9,6 +9,7 @@ from ..config import TutorConfig
 from ..models import Exercise, TutorState
 from ..prompt_utils import safe_format_prompt
 from ..prompts import exercise_designer_prompt
+from .memory_service import MemoryService
 logger = logging.getLogger(__name__)
 
 
@@ -19,9 +20,10 @@ class ExerciseService:
     组装 prompt、调用 agent、解析输出。
     """
 
-    def __init__(self, agent: ToolAwareSimpleAgent, config: TutorConfig) -> None:
+    def __init__(self, agent: ToolAwareSimpleAgent, config: TutorConfig, memory_service: MemoryService | None = None) -> None:
         self.agent = agent
         self.config = config
+        self.memory_service = memory_service
 
     def generate_exercise(self, state: TutorState, params: dict[str, Any]) -> Exercise:
         """同步生成一道练习题。Agent 自主决定是否使用 LeetCode MCP 工具。"""
@@ -57,10 +59,18 @@ class ExerciseService:
     def _build_full_prompt(self, state: TutorState, params: dict[str, Any]) -> str:
         """组装 prompt，注入用户画像、学习阶段等上下文供 agent 决策。"""
         language = params.get("language", state.user_profile.preferred_language)
-        difficulty = params.get("difficulty", "基础")
-        topic = params.get("topic", "根据用户薄弱点自动选择")
         user_message = params.get("_user_message", "")
         user_skill_profile = state.user_profile.summary()
+
+        # 从长期记忆获取偏好难度和练习历史摘要
+        difficulty = params.get("difficulty", "基础")
+        topic = params.get("topic", "根据用户薄弱点自动选择")
+        mem_ctx: dict[str, str] = {}
+        if self.memory_service:
+            mem_ctx = self.memory_service.build_learning_context_block(state.user_id)
+            # 用记忆中的偏好难度作为 fallback（仅在未明确指定时）
+            if not params.get("difficulty") and mem_ctx.get("preferred_difficulty"):
+                difficulty = mem_ctx["preferred_difficulty"]
 
         # 附加上下文帮助 agent 判断是否需要调用 LeetCode 工具
         extra_context_parts: list[str] = []
@@ -71,6 +81,12 @@ class ExerciseService:
                 extra_context_parts.append(f"当前学习阶段：{stage.topic}，目标：{stage.objectives}")
         if state.user_profile.weak_skills:
             extra_context_parts.append(f"用户薄弱点：{', '.join(state.user_profile.weak_skills)}")
+        if mem_ctx.get("recent_exercises"):
+            extra_context_parts.append(f"已练习题目（请避免重复出相同题目）：{mem_ctx['recent_exercises']}")
+        if mem_ctx.get("recurring_errors"):
+            extra_context_parts.append(f"用户反复出现的错误模式（建议针对性出题）：{mem_ctx['recurring_errors']}")
+        if mem_ctx.get("prefers_leetcode"):
+            extra_context_parts.append("用户偏好 LeetCode 真题，优先调用工具检索合适题目。")
         extra_context = "\n".join(extra_context_parts)
 
         prompt = safe_format_prompt(
