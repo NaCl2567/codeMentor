@@ -47,7 +47,7 @@ class PathService:
         full_response = "".join(collected_chunks)
         path = self._parse_plan(full_response, state.user_id, goal)
         state.active_learning_path = path
-        yield {"type": "learning_path", "path": path}
+        yield {"type": "learning_path", "path": path.to_dict()}
 
     def _build_prompt(self, state: TutorState, goal: str) -> str:
         """构建填充用户画像与对话历史的完整提示词。"""
@@ -73,21 +73,25 @@ class PathService:
         """
         从 Plan 输出的 Markdown 表格中提取阶段列表，构建 LearningPath。
         """
-        # 提取总周数
+        # 提取总周数：兼容加粗格式 **预计总时长**：12 周
         total_weeks = 0
-        weeks_match = re.search(r"预计总时长[：:]\s*(\d+)\s*周", raw_markdown)
+        weeks_match = re.search(r"预计总时长\*{0,2}[：:]\s*(\d+)\s*周", raw_markdown)
         if weeks_match:
             total_weeks = int(weeks_match.group(1))
 
-        # 定位表格开始行
+        # 定位表格开始行：兼容 | 阶段 |、|阶段|、| **阶段** | 等变体
         lines = raw_markdown.splitlines()
         table_start = -1
         for i, line in enumerate(lines):
-            if line.strip().startswith("| 阶段 |") or line.strip().startswith("|阶段|"):
+            stripped = line.strip()
+            # 去掉 Markdown 加粗后检查是否为阶段表头行
+            normalized = stripped.replace("**", "")
+            if re.match(r"\|\s*阶段\s*\|", normalized):
                 table_start = i
                 break
         if table_start == -1:
             # 未找到表格，返回空路径
+            logger.warning("_parse_plan: 未找到阶段概览表格，返回空路径。raw前200字符: %s", raw_markdown[:200])
             return LearningPath(goal=goal, user_id=user_id, total_weeks=total_weeks)
 
         # 跳过表头与分隔线
@@ -100,17 +104,16 @@ class PathService:
             parts = [p.strip() for p in line.split("|")[1:-1]]  # 去掉首尾空
             if len(parts) < 5:
                 continue
-            try:
-                stage_id = int(parts[0])
-            except ValueError:
-                continue  # 非数据行
+            # stage_id：提取第一个出现的数字，兼容 "1"、"第1阶段"、"阶段1" 等
+            id_match = re.search(r"\d+", parts[0])
+            if not id_match:
+                continue  # 分隔行或无效行
+            stage_id = int(id_match.group())
             topic = parts[1]
             objectives = parts[2]
-            weeks_str = parts[3].replace("周", "").strip()
-            try:
-                weeks = int(weeks_str)
-            except ValueError:
-                weeks = 0
+            # 预计耗时：提取第一个数字，兼容 "2周"、"2-3周"、"约2周" 等
+            weeks_match_cell = re.search(r"\d+", parts[3])
+            weeks = int(weeks_match_cell.group()) if weeks_match_cell else 0
             milestone = parts[4]
 
             stage = LearningStage(
